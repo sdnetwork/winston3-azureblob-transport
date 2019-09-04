@@ -50,5 +50,6 @@ The AzureBlob transport accepts the following options :
 * __rotatePeriod:__ A moment format ex : YYYY-MM-DD will generate blobName.2000.01.01
 * __bufferLogSize:__ A minimum number of logs before sync the blob, set to 1 if you want sync at each log.
 * __syncTimeout:__ The maximum time between two sync, set to zero if you don't want 
+
 ## Inspiration
-[winston-azure-blob-transport][2]
+https://github.com/Parsimotion/winston-azure-blob-transport
