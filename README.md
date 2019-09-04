@@ -11,7 +11,7 @@ An Azure Blob transport for winston3
 ## Usage
 ``` js
   var winston = require("winston");
-  var azureBlobTransport = require("winston-azureblob-transport");
+  var azureBlobTransport = require("winston3-azureblob-transport");
 
   var logger = winston.createLogger({
     format: winston.format.combine(
