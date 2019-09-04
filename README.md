@@ -1,4 +1,4 @@
-# winston3-azure-blob-transport
+# winston3-azureblob-transport
 An Azure Blob transport for winston3
 
 ## Installation
