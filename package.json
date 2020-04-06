@@ -1,6 +1,6 @@
 {
   "name": "winston3-azureblob-transport",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "An Azure Blob transport for winston3",
   "main": "lib/winston3-azureblob.js",
   "engines": {
