@@ -24,6 +24,10 @@ const MAX_APPEND_BLOB_BLOCK_SIZE = 4 * 1024 * 1024;
 
 
 interface IAzureBlob {
+  account: {
+    name: string,
+    key: string
+  },
   azBlobClient: azure.BlobService
   containerName: string
   blobName: string
@@ -35,12 +39,18 @@ interface IAzureBlob {
   timeoutFn: NodeJS.Timeout | null;
 }
 
+type IConstruct = Pick<IAzureBlob, "account" | "containerName" | "blobName" | "EOL" | "bufferLogSize" | "syncTimeout" | "rotatePeriod">;
+
 //
 // Inherit from `winston-transport` so you can take advantage
 // of the base functionality and `.exceptions.handle()`.
 //
 export class AzureBlob extends Transport implements IAzureBlob {
 
+  account!: {
+    name: string;
+    key: string;
+  };
   azBlobClient: azure.BlobService
   containerName: string
   blobName: string
@@ -51,10 +61,10 @@ export class AzureBlob extends Transport implements IAzureBlob {
   buffer: Array<any>;
   timeoutFn: NodeJS.Timeout | null;
 
-  constructor(opts: Transport.TransportStreamOptions) {
+  constructor(opts: Transport.TransportStreamOptions & Partial<IConstruct>) {
     super(opts);
 
-    const options = {...loggerDefaults,...opts};
+    const options = { ...loggerDefaults, ...opts };
 
     // create az blob client
     this.azBlobClient = this._createAzClient(options.account);
@@ -94,10 +104,9 @@ export class AzureBlob extends Transport implements IAzureBlob {
     }
   }
 
-  log(info: any, callback: () => void) {
+  log(info: any, callback: Function) {
     this.push(info, () => {
-      this.log('logged', info)
-      // this.emit('logged', info);
+      this.emit('logged', info);
       callback();
     })
   }
@@ -129,21 +138,21 @@ export class AzureBlob extends Transport implements IAzureBlob {
     if (this.rotatePeriod)
       blobName = blobName + "." + moment().format(this.rotatePeriod);
 
-    let toSend = tasks.map((item: any) => item[MESSAGE]).join(this.EOL) + this.EOL;
+    let toSend = tasks.map((item) => item[MESSAGE]).join(this.EOL) + this.EOL;
     let chunks = this._chunkString(toSend, MAX_APPEND_BLOB_BLOCK_SIZE);
     debug("Numbers of appendblock needed", chunks.length);
     debug("Size of chunks", toSend.length);
     async.eachSeries(chunks, (chunk, nextappendblock) => {
-      azClient.appendBlockFromText(containerName, blobName, chunk, {}, function (err, _result) {
-        if (err) {
-          if (err.name === "BlobNotFound") {
-            return azClient.createAppendBlobFromText(containerName, blobName, chunk, {}, function (err, _result) {
+      azClient.appendBlockFromText(containerName, blobName, chunk, {}, function (err: any, _result) {
+        if (err && err.code) {
+          if (err.code === "BlobNotFound") {
+            return azClient.createAppendBlobFromText(containerName, blobName, chunk, {}, function (err: any, _result) {
               if (err)
-                debug("Error during appendblob creation", err.name);
+                debug("Error during appendblob creation", err.code);
               nextappendblock();
             })
           }
-          debug("Error during appendblob operation", err.name);
+          debug("Error during appendblob operation", err.code);
         }
         nextappendblock();
       })
