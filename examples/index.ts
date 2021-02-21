@@ -19,7 +19,7 @@ const logger = winston.createLogger({
         key: process.env.ACCOUNT_KEY || 'account key'
       },
       containerName: 'sample',
-      blobName: 'samplelogs',
+      blobName: 'logs',
       level: 'info',
       bufferLogSize: 1,
       syncTimeout: 0,

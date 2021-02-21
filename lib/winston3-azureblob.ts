@@ -12,10 +12,10 @@ const loggerDefaults = {
   },
   containerName: 'YOUR_CONTAINER',
   blobName: 'YOUR_BLOBNAME',
-  eol: '\n', // End of line character two concate log
+  eol: '\n', // End of line character to concatenate log
   rotatePeriod: '', // moment format to rotate ,empty if you don't want rotate
   // due to limitation of 50K block in azure blob storage we add some params to avoid the limit
-  bufferLogSize: -1, // minimum numners of log before send the block
+  bufferLogSize: -1, // minimum numbers of log before send the block
   syncTimeout: 0 // maximum time between two push to azure blob
 }
 
