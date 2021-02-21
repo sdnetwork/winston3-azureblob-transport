@@ -2,7 +2,6 @@ import _ from "lodash";
 import faker from "faker";
 import * as winston from "winston";
 import { azureBlobTransport } from "../lib"
-
 import * as dotenv from "dotenv";
 
 dotenv.config();

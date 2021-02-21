@@ -3,7 +3,6 @@ import async from "async";
 import * as azure from "azure-storage";
 import moment from "moment";
 import { MESSAGE } from "triple-beam";
-
 const debug = require("debug")("winston3-azureblob-transport");
 
 var loggerDefaults = {
@@ -40,6 +39,8 @@ interface IAzureBlob {
 }
 
 type IConstruct = Pick<IAzureBlob, "account" | "containerName" | "blobName" | "EOL" | "bufferLogSize" | "syncTimeout" | "rotatePeriod">;
+
+type Data = Record<string,any>;
 
 //
 // Inherit from `winston-transport` so you can take advantage
@@ -81,7 +82,7 @@ export class AzureBlob extends Transport implements IAzureBlob {
     this.timeoutFn = null;
   }
 
-  push(data: any, callback: { (): void; (): void; }) {
+  push(data: Data, callback: async.ErrorCallback<Error>) {
     if (data)
       this.buffer.push(data);
     if (this.bufferLogSize < 1 || this.buffer.length >= this.bufferLogSize) {
@@ -104,7 +105,7 @@ export class AzureBlob extends Transport implements IAzureBlob {
     }
   }
 
-  log(info: any, callback: Function) {
+  log(info: Data, callback: Function) {
     this.push(info, () => {
       this.emit('logged', info);
       callback();
@@ -119,16 +120,14 @@ export class AzureBlob extends Transport implements IAzureBlob {
     const size = Math.ceil(str.length / len)
     const r = Array(size)
     let offset = 0
-
     for (let i = 0; i < size; i++) {
       r[i] = str.substr(offset, len)
       offset += len
     }
-
     return r
   }
 
-  _logToAppendBlob(tasks: any[], callback: async.ErrorCallback<Error>) {
+  _logToAppendBlob(tasks: Array<Data>, callback: async.ErrorCallback<Error>) {
     debug("Try to appendblock", tasks.length);
     if (tasks.length == 0) // nothing to log
       return callback();
@@ -138,7 +137,7 @@ export class AzureBlob extends Transport implements IAzureBlob {
     if (this.rotatePeriod)
       blobName = blobName + "." + moment().format(this.rotatePeriod);
 
-    let toSend = tasks.map((item) => item[MESSAGE]).join(this.EOL) + this.EOL;
+    let toSend = tasks.map((item) => item[MESSAGE as unknown as string]).join(this.EOL) + this.EOL;
     let chunks = this._chunkString(toSend, MAX_APPEND_BLOB_BLOCK_SIZE);
     debug("Numbers of appendblock needed", chunks.length);
     debug("Size of chunks", toSend.length);
