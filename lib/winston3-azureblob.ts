@@ -31,8 +31,8 @@ interface IAzureBlob {
   EOL: string
   bufferLogSize: number
   syncTimeout: number
-  buffer: any;
-  timeoutFn: any;
+  buffer: Array<any>;
+  timeoutFn: NodeJS.Timeout | null;
 }
 
 //
@@ -48,8 +48,8 @@ export class AzureBlob extends Transport implements IAzureBlob {
   EOL: string
   bufferLogSize: number
   syncTimeout: number
-  buffer: any;
-  timeoutFn: any;
+  buffer: Array<any>;
+  timeoutFn: NodeJS.Timeout | null;
 
   constructor(opts: Transport.TransportStreamOptions) {
     super(opts);
@@ -78,6 +78,7 @@ export class AzureBlob extends Transport implements IAzureBlob {
       this._logToAppendBlob(this.buffer, callback); // in this case winston buffer for us
       this.buffer = [];
     } else if (this.syncTimeout && this.timeoutFn === null) {
+
       this.timeoutFn = setTimeout(() => {
         let tasks = this.buffer.slice(0);
         this.buffer = [];
@@ -133,10 +134,10 @@ export class AzureBlob extends Transport implements IAzureBlob {
     debug("Numbers of appendblock needed", chunks.length);
     debug("Size of chunks", toSend.length);
     async.eachSeries(chunks, (chunk, nextappendblock) => {
-      azClient.appendBlockFromText(containerName, blobName, chunk, {}, function (err, result) {
+      azClient.appendBlockFromText(containerName, blobName, chunk, {}, function (err, _result) {
         if (err) {
           if (err.name === "BlobNotFound") {
-            return azClient.createAppendBlobFromText(containerName, blobName, chunk, {}, function (err, result) {
+            return azClient.createAppendBlobFromText(containerName, blobName, chunk, {}, function (err, _result) {
               if (err)
                 debug("Error during appendblob creation", err.name);
               nextappendblock();
@@ -148,5 +149,4 @@ export class AzureBlob extends Transport implements IAzureBlob {
       })
     }, callback)
   }
-
 };

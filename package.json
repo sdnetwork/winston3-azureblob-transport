@@ -2,15 +2,21 @@
   "name": "winston3-azureblob-transport",
   "version": "0.1.1",
   "description": "An Azure Blob transport for winston3",
-  "main": "lib/winston3-azureblob.js",
+  "main": "dist/index.js",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
   "engines": {
     "node": ">=6.0.0"
   },
   "directories": {
     "lib": "lib"
   },
+  "files": [
+    "dist"
+  ],
   "scripts": {
-    "test": "mocha --reporter spec"
+    "test": "mocha --reporter spec",
+    "build":"tsc"
   },
   "repository": {
     "type": "git",
