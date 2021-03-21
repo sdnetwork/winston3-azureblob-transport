@@ -15,8 +15,8 @@ const logger = winston.createLogger({
   transports: [
     new (AzureBlobTransport)({
       account: {
-        name: process.env.ACCOUNT_NAME || 'account name',
-        key: process.env.ACCOUNT_KEY || 'account key'
+        host: process.env.HOST || 'host',
+        sasToken: process.env.SAS_TOKEN || 'sasToken'
       },
       containerName: 'sample',
       blobName: 'logs',
@@ -24,7 +24,7 @@ const logger = winston.createLogger({
       bufferLogSize: 1,
       syncTimeout: 0,
       rotatePeriod: '',
-      EOL: '\n'
+      eol: '\n'
     })
   ]
 })

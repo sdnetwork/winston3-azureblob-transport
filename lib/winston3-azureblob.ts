@@ -3,9 +3,43 @@ import async from 'async'
 import * as azure from 'azure-storage'
 import moment from 'moment'
 import { MESSAGE } from 'triple-beam'
-const debug = require('debug')('winston3-azureblob-transport')
+import Debug from 'debug'
 
-const loggerDefaults = {
+const debug = Debug('winston3-azureblob-transport')
+const MAX_APPEND_BLOB_BLOCK_SIZE = 4 * 1024 * 1024
+
+/**
+ * Azure storage account credential variants
+ */
+type Account = { name: string, key: string } | { host: string, sasToken: string }
+
+interface IAzureBlob {
+  account: Account
+  azBlobClient: azure.BlobService
+  containerName: string
+  blobName: string
+  rotatePeriod: string
+  eol: string
+  bufferLogSize: number
+  syncTimeout: number
+  buffer: Array<any>
+  timeoutFn: NodeJS.Timeout | null
+}
+
+/**
+ * Default options for AzureBlob
+ */
+type ILoggerDefaults = Pick<IAzureBlob, 'account' | 'containerName' | 'blobName' | 'eol' | 'bufferLogSize' | 'syncTimeout' | 'rotatePeriod'>
+
+/**
+ * Data to be logged
+ */
+type Data = Record<string, any>
+
+/**
+ * Default options for constructing logger
+ */
+const loggerDefaults: ILoggerDefaults = {
   account: {
     name: 'YOUR_ACCOUNT_NAME',
     key: 'YOUR_ACCOUNT_KEY'
@@ -19,49 +53,27 @@ const loggerDefaults = {
   syncTimeout: 0 // maximum time between two push to azure blob
 }
 
-const MAX_APPEND_BLOB_BLOCK_SIZE = 4 * 1024 * 1024
-
-interface IAzureBlob {
-  account: {
-    name: string,
-    key: string
-  },
-  azBlobClient: azure.BlobService
-  containerName: string
-  blobName: string
-  rotatePeriod: string
-  EOL: string
-  bufferLogSize: number
-  syncTimeout: number
-  buffer: Array<any>;
-  timeoutFn: NodeJS.Timeout | null;
-}
-
-type IConstruct = Pick<IAzureBlob, 'account' | 'containerName' | 'blobName' | 'EOL' | 'bufferLogSize' | 'syncTimeout' | 'rotatePeriod'>;
-
-type Data = Record<string, any>;
-
 //
 // Inherit from `winston-transport` so you can take advantage
 // of the base functionality and `.exceptions.handle()`.
 //
 export class AzureBlob extends Transport implements IAzureBlob {
   account!: {
-    name: string;
-    key: string;
-  };
+    name: string
+    key: string
+  }
 
   azBlobClient: azure.BlobService
   containerName: string
   blobName: string
   rotatePeriod: string
-  EOL: string
+  eol: string
   bufferLogSize: number
   syncTimeout: number
-  buffer: Array<any>;
-  timeoutFn: NodeJS.Timeout | null;
+  buffer: Array<any>
+  timeoutFn: NodeJS.Timeout | null
 
-  constructor (opts: Transport.TransportStreamOptions & Partial<IConstruct>) {
+  constructor (opts: Transport.TransportStreamOptions & ILoggerDefaults) {
     super(opts)
 
     const options = { ...loggerDefaults, ...opts }
@@ -71,7 +83,7 @@ export class AzureBlob extends Transport implements IAzureBlob {
     this.containerName = options.containerName
     this.blobName = options.blobName
     this.rotatePeriod = options.rotatePeriod
-    this.EOL = options.eol
+    this.eol = options.eol
     this.bufferLogSize = options.bufferLogSize
     this.syncTimeout = options.syncTimeout
     if (this.bufferLogSize > 1 && !this.syncTimeout) {
@@ -109,8 +121,11 @@ export class AzureBlob extends Transport implements IAzureBlob {
     })
   }
 
-  _createAzClient (account_info: { name: any; key: any; }) {
-    return azure.createBlobService(account_info.name, account_info.key)
+  _createAzClient (account_info: Account) {
+    if ('key' in account_info) {
+      return azure.createBlobService(account_info.name, account_info.key)
+    }
+    return azure.createBlobServiceWithSas(account_info.host, account_info.sasToken)
   }
 
   _chunkString (str: string, len: number) {
@@ -135,18 +150,21 @@ export class AzureBlob extends Transport implements IAzureBlob {
     let blobName = this.blobName
     if (this.rotatePeriod) { blobName = blobName + '.' + moment().format(this.rotatePeriod) }
 
-    const toSend = tasks.map((item) => item[MESSAGE as unknown as string]).join(this.EOL) + this.EOL
+    const toSend = tasks.map((item) => item[MESSAGE as unknown as string]).join(this.eol) + this.eol
     const chunks = this._chunkString(toSend, MAX_APPEND_BLOB_BLOCK_SIZE)
     debug('Numbers of appendblock needed', chunks.length)
     debug('Size of chunks', toSend.length)
     async.eachSeries(chunks, (chunk, nextappendblock) => {
-      azClient.appendBlockFromText(containerName, blobName, chunk, {}, function (err: any, _result) {
+      azClient.appendBlockFromText(containerName, blobName, chunk, {}, (err: azure.StorageError, _result) => {
         if (err && err.code) {
           if (err.code === 'BlobNotFound') {
-            return azClient.createAppendBlobFromText(containerName, blobName, chunk, {}, function (err: any, _result) {
+            return azClient.createAppendBlobFromText(containerName, blobName, chunk, {}, (err: azure.StorageError, _result) => {
               if (err) { debug('Error during appendblob creation', err.code) }
               nextappendblock()
             })
+          }
+          if (err.code === 'AuthorizationResourceTypeMismatch') {
+            debug(err.message)
           }
           debug('Error during appendblob operation', err.code)
         }
@@ -154,4 +172,4 @@ export class AzureBlob extends Transport implements IAzureBlob {
       })
     }, callback)
   }
-};
+}
